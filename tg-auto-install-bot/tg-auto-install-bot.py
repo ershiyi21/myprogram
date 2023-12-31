@@ -58,6 +58,7 @@ def send_reply(chat_id, message_id, text, time_sleep, link_url):
         "disable_web_page_preview": "true"
     }
     response = requests.get(url, params=params)
+    reply_message_id = None
     if response.status_code == 200:
         data = response.json()
         reply_message_id = data["result"]["message_id"]  # 提取回复消息的 message_id
