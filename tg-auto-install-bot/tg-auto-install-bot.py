@@ -58,17 +58,19 @@ def send_reply(chat_id, message_id, text, time_sleep, link_url):
         "disable_web_page_preview": "true"
     }
     response = requests.get(url, params=params)
-    reply_message_id = None
+    
     if response.status_code == 200:
         data = response.json()
         reply_message_id = data["result"]["message_id"]  # 提取回复消息的 message_id
         logger.info(f"tg回复消息id {message_id} 成功！")
+        
+        #删除回复的消息
+        thread = threading.Thread(target=delete_latest_message, args=(chat_id, reply_message_id, time_sleep))
+        thread.start()
     else:
         logger.info(f"tg回复消息id {message_id} 失败！")
     
-    #删除回复的消息
-    thread = threading.Thread(target=delete_latest_message, args=(chat_id, reply_message_id, time_sleep))
-    thread.start()
+   
    
 def delete_latest_message(chat_id, message_id, time_sleep):
     time.sleep(time_sleep)
