@@ -20,13 +20,12 @@ logging_file = "/tmp/tg-auto-install-bot.log" # 日志记录文件
 allowed_user_ids = [aaa,bbb,-ccc]  # 允许的用户或者群组ID列表，多个用英文逗号隔开
 cleanup_interval = 3600  # 定义清理旧数据的时间间隔（以秒为单位）
 remote_url = "https://xxx.com/odrive" ## alist等列表程序，远程云盘对应remote_path的目录
-max_workers = "3" # 处理tg文件时的并发线程数，默认为3
 
 media_group_id_start_count = {}
 media_group_id_end_count = {}
 
 # 创建线程池
-pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+pool = concurrent.futures.ThreadPoolExecutor(max_workers=3) # 处理tg文件时的并发线程数，默认为3
 
 # 配置日志输出
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s',filename=logging_file)
