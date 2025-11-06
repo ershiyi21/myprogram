@@ -1,7 +1,6 @@
 import requests
 import os
 import shlex
-from tqdm import tqdm
 import subprocess
 import logging
 import re
@@ -11,15 +10,17 @@ import threading
 import concurrent.futures
 
 # 全局变量
-bot_token = ""  # 替换为您的Telegram Bot的令牌
-download_path = "/home/tgmedia"  # 下载文件的本地保存路径，若开启rclone上传，即文件中转地址
-enable_upload = True  # 是否开启rclone上传，根据需要设置为True或False，rclone上传默认为"move"，即rclone上传后会删除本地文件
-remote_path = "盘符:路径"  # rclone上传文件的远程路径
-api_base_url = "http://127.0.0.1:8081/bot" # 实际的Telegram Bot Api请求地址
-logging_file = "/tmp/tg-auto-install-bot.log" # 日志记录文件
-allowed_user_ids = [aaa,bbb,-ccc]  # 允许的用户或者群组ID列表，多个用英文逗号隔开
-cleanup_interval = 3600  # 定义清理旧数据的时间间隔（以秒为单位）
-remote_url = "https://xxx.com/odrive" ## alist等列表程序，远程云盘对应remote_path的目录
+bot_token = "11111:aaaaa"  # 替换为您的Telegram Bot的令牌
+download_path = "/tmp/tgmedia/"  # 可不修改，文件硬链接位置，rclone上传时的文件中转地址，注意须与telegram-bot-api的文件下载位置【一般/var/lib/telegram-bot-api】位于同一硬盘，不然硬链接会失败
+remote_path = "/media/qunhui/share/tg-down"  # rclone上传文件的远程路径，默认为rclone move，上传完成会删除本地文件 eg. /media/tg转存  onedrive:/
+api_base_url = "http://127.0.0.1:8081/bot" # 不需要修改,实际的Telegram Bot Api请求地址
+logging_file = "/tmp/tg-auto-install-bot.log" # 不需要修改,日志记录文件，实时查看日志最后100行，tail -f -n 100 /tmp/tg-auto-install-bot.log
+allowed_user_ids = [1111, 2222,-3333,-4444]  # 允许的用户或者群组ID列表，多个用英文逗号隔开
+cleanup_interval = 3600  # 不需要修改,定义清理旧数据的时间间隔（以秒为单位），不需要修改
+remote_url = "http://url/....path=%2Ftg%E4%B8%8B%E8%BD%BD" ## alist等列表程序，远程云盘对应remote_path的目录
+max_retries=100   # telegram-bot-api远端请求次数，每一次为30s，超过次数则该文件下载失败
+retry_delay=5    # telegram-bot-api远端请求间隔时间，搭配max_retries使用,如下载失败，调高max_retries即可
+
 
 media_group_id_start_count = {}
 media_group_id_end_count = {}
@@ -81,9 +82,9 @@ def delete_latest_message(chat_id, message_id, time_sleep):
     }
     response = requests.get(url, params=params)
     if response.status_code == 200:
-        logger.info("成功删除消息{message_id}！")
+        logger.info(f"成功删除消息{message_id}！")
     else:
-        logger.info("删除最新的消息{message_id}！")
+        logger.info(f"删除最新的消息{message_id}！")
 
 def generate_filename(file_name, file_size, caption, file_getpath):
     # 生成新的文件名
@@ -109,7 +110,7 @@ def download_file(url, file_type, file_name, caption, file_getpath, message_id, 
     total_size = file_size
 
     file_name_with_size = generate_filename(file_name, total_size, caption, file_getpath)
-    logger.info(f"文件重命名为：{file_name_with_size}")
+    logger.info(f"【{media_group_id}】文件{file_name}重命名为：{file_name_with_size}")
 
     if media_group_id:
         if caption:
@@ -152,38 +153,53 @@ def download_file(url, file_type, file_name, caption, file_getpath, message_id, 
 
             media_group_id_start_time = media_group_id_start_count[media_group_id] #总共次数
             media_group_id_end_time = media_group_id_end_count[media_group_id] #已经出现次数
-            logging.info("总共 {media_group_id_start_time} 已经{media_group_id_end_time}")
+            logging.info(f"【{media_group_id}】总共 {media_group_id_start_time} 已上传完成{media_group_id_end_time}")
             
             if media_group_id_start_time == media_group_id_end_time:
-                logging.info(f"{media_group_id_end_time}个文件全部上传完成")
-                reply_text = f"{media_group_id_end_time}个文件全部上传完成\n\n<a href='{link_url}'>文件链接</a>"
+                logging.info(f"【{media_group_id}】{media_group_id_end_time}个文件全部上传完成")
+                reply_text = f"【{media_group_id}】{media_group_id_end_time}个文件全部上传完成\n\n<a href='{link_url}'>文件链接</a>"
                 send_reply(chat_id, message_id, reply_text, time_sleep, link_url)   
         else:
             if result.returncode == 0:
-                logging.info("文件 {file_name_with_size} 上传完成")
-                reply_text = f"文件 {file_name_with_size} 上传完成\n\n<a href='{link_url}'>文件链接</a>"
+                logging.info("【{media_group_id}】文件 {file_name_with_size} 上传完成")
+                reply_text = f"【{media_group_id}】文件 {file_name_with_size} 上传完成\n\n<a href='{link_url}'>文件链接</a>"
                 send_reply(chat_id, message_id, reply_text, time_sleep, link_url)
             else:
-                logging.error(f"文件 {file_name_with_size} 上传失败，返回码：{result.returncode}")
-                reply_text = f"文件 {file_name_with_size} 上传失败，返回码：{result.returncode}"
+                logging.error(f"【{media_group_id}】文件 {file_name_with_size} 上传失败，返回码：{result.returncode}")
+                reply_text = f"【{media_group_id}】文件 {file_name_with_size} 上传失败，返回码：{result.returncode}"
                 send_reply(chat_id, message_id, reply_text, time_sleep, link_url)
-             
+
 def download_media_file(file_id, file_name, file_type, caption, message_id, chat_id, media_group_id):
-    #print(threading.current_thread().getName(), 'Starting')
     get_file_url = f"{api_base_url}{bot_token}/getFile"
     params = {"file_id": file_id}
 
-    response = requests.get(get_file_url, params=params)
-    file_info = response.json()
-    logger.info(f" {file_id} 文件获取file_path：{file_info} ")
+    retries = 0
+    while retries < max_retries:
+        try:
+            response = requests.get(get_file_url, params=params, timeout=30)  # timeout可调整
+            logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}尝试获取 file_info: {response}")
 
-    if file_info["ok"]:
-        file_path = file_info["result"]["file_path"]
-        file_size = file_info["result"]["file_size"]
-        file_url = f"{api_base_url}{bot_token}/{file_path}"
-        download_file(file_url, file_type, file_name, caption, file_path, message_id, chat_id, media_group_id, file_size)
-    else:
-        logger.error("获取文件信息失败。")
+            file_info = response.json()
+            logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}file_info: {file_info}")
+
+            if file_info.get("ok") and "result" in file_info:
+                file_path = file_info["result"]["file_path"]
+                file_size = file_info["result"].get("file_size", 0)
+                file_url = f"{api_base_url}{bot_token}/{file_path}"
+
+                download_file(file_url, file_type, file_name, caption, file_path, message_id, chat_id, media_group_id, file_size)
+                return  # 成功获取并下载后退出函数
+            else:
+                logger.warning(f"【{media_group_id} | {file_id}】\n{' ' * 26}获取文件信息失败，返回值: {file_info}")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"【{media_group_id} | {file_id}】\n{' ' * 26}server端telegram-bot-api还未将tg云端文件下载到本地。\n{' ' * 26}本次请求异常: {e}")
+
+        retries += 1
+        logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}等待 {retry_delay}s 后重试第 {retries} 次...")
+        time.sleep(retry_delay)
+
+    logger.error(f"【{media_group_id} | {file_id}】\n{' ' * 26}多次请求server端telegram-bot-api，重试后仍未获取 file_info: {file_id}，不再尝试")
+
 
 def process_message(message, media_group_captions, caption, media_group_id):
     message_id = message['message_id']
@@ -203,7 +219,7 @@ def process_message(message, media_group_captions, caption, media_group_id):
         photo = message["photo"][-1]  # 获取最后一张照片（原始分辨率）
         file_id = photo["file_id"]
         file_name = photo.get("file_name", "photo")
-        logger.info(f"收到照片消息，开始下载：{file_name}")
+        logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}收到照片消息，开始下载：{file_name}")
         # download_media_file(file_id, file_name, "photos",caption, message_id, chat_id, media_group_id)
         pool.submit(download_media_file, file_id, file_name, "photos", caption, message_id, chat_id, media_group_id)
 
@@ -212,7 +228,7 @@ def process_message(message, media_group_captions, caption, media_group_id):
         document = message["document"]
         file_id = document["file_id"]
         file_name = document.get("file_name", "document")
-        logger.info(f"收到文档消息，开始下载：{file_name}")
+        logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}收到文档消息，开始下载：{file_name}")
         # download_media_file(file_id, file_name, "documents",caption, message_id, chat_id, media_group_id)
         pool.submit(download_media_file, file_id, file_name, "documents", caption, message_id, chat_id, media_group_id)
 
@@ -221,7 +237,7 @@ def process_message(message, media_group_captions, caption, media_group_id):
         video = message["video"]
         file_id = video["file_id"]
         file_name = video.get("file_name", "video")
-        logger.info(f"收到视频消息，开始下载：{file_name}")
+        logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}收到视频消息，开始下载：{file_name}")
         #download_media_file(file_id, file_name, "videos",caption, message_id, chat_id, media_group_id)
         #thread = threading.Thread(target=download_media_file, args=(file_id, file_name, "videos", caption, message_id, chat_id, media_group_id))
         #thread.start()
@@ -234,7 +250,7 @@ def process_message(message, media_group_captions, caption, media_group_id):
         audio = message["audio"]
         file_id = audio["file_id"]
         file_name = audio.get("file_name", "audio")
-        logger.info(f"收到音频消息，开始下载：{file_name}")
+        logger.info(f"【{media_group_id} | {file_id}】\n{' ' * 26}收到音频消息，开始下载：{file_name}")
         # download_media_file(file_id, file_name, "audios",caption, message_id, chat_id, media_group_id)
         pool.submit(download_media_file, file_id, file_name, "audios", caption, message_id, chat_id, media_group_id)
 
@@ -242,7 +258,7 @@ def process_message(message, media_group_captions, caption, media_group_id):
         # 处理文本文件
         text = message["text"]
         #if (text.startswith("/ping") or text.startswith("/start")) and len(text) == 5:
-        if (text.startswith("/ping") and len(text) == 5) or (text.startswith("/start") and len(text) == 6):
+        if (text.startswith("/ping") and len(text) == 5) or (text.startswith("/start") and len(text) == 6) or (text.startswith("/ping@")):
         #if text.startswith("/ping") and len(text) == 5:
             # 如果消息以 /ping 开头，回复 Pong! 🏓
             link_url = None
