@@ -3,4 +3,4 @@
 
 ### yt_install
 自动判断系统架构安装yt-dlp的nightly版本，创建yt快捷命令，后续更新直接shell输入yt即可
-bash <(curl -L -s https://raw.githubusercontent.com/ershiyi21/21media/main/yt/yt_install.sh)
+`bash <(curl -L -s https://raw.githubusercontent.com/ershiyi21/21media/main/yt/yt_install.sh)`
