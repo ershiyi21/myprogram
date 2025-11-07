@@ -127,6 +127,7 @@ def download_file(url, file_type, file_name, caption, file_getpath, message_id, 
     os.link(file_getpath, file_path) 
     logger.info(f"{file_getpath},{file_path}")
     
+    enable_upload = True
     if enable_upload:
         # 构造远程路径
         remote_file_path = f"{remote_path}/{file_type}"
