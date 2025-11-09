@@ -54,7 +54,7 @@ ytdlp = False
 
 ## 删除信息的默认时间，无需修改
 time_sleep = 600
-
+link_url = None
 
 media_group_id_start_count = {}
 media_group_id_end_count = {}
@@ -423,7 +423,6 @@ def process_message(message, media_group_captions, caption, media_group_id):
         if (text.startswith("/ping") and len(text) == 5) or (text.startswith("/start") and len(text) == 6) or (text.startswith("/ping@")):
         #if text.startswith("/ping") and len(text) == 5:
             # 如果消息以 /ping 开头，回复 Pong! 🏓
-            link_url = None
             time_sleep = 2
             send_reply(chat_id, message_id, "Pong! 🏓", time_sleep, link_url)
 
@@ -438,9 +437,14 @@ def process_message(message, media_group_captions, caption, media_group_id):
             parts = text.split()
             if len(parts) != 2:
                 logger.info("请使用：/ytdlp <url>")
-                reply_text = "请使用：/ytdlp <url>"
-                time_sleep = 600
+                reply_text = "请使用：/ytdlp+空格+链接"
+                time_sleep = 5
                 send_reply(chat_id, message_id, reply_text, time_sleep , '123')
+
+                #删除回复的消息
+                thread = threading.Thread(target=delete_latest_message, args=(chat_id, message_id, time_sleep))
+                thread.start()
+
                 return
 
             logger.info("收到ytdlp内容，开始下载...") 
