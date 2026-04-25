@@ -26,9 +26,20 @@ RUN docker-php-ext-install exif
 # Apache
 RUN a2enmod rewrite
 
-COPY index.php /var/www/html/index.php
-COPY files.js /var/www/html/files.js
-COPY _files/ /var/www/html/_files/
-RUN chown -R www-data:www-data /var/www/html
+# 创建默认文件目录
+RUN mkdir -p /opt/default
+
+COPY index.php /opt/default/index.php
+COPY files.js /opt/default/files.js
+COPY _files/ /opt/default/_files/
+RUN chown -R www-data:www-data /var/www
+RUN chown -R www-data:www-data /opt/default
+
+# 启动脚本
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["apache2-foreground"]
 
 EXPOSE 8080
