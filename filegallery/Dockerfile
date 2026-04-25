@@ -2,6 +2,7 @@ FROM php:8.2-apache
 
 # ✅ 1. 编译环境 + 依赖（关键修复点）
 RUN apt-get update && apt-get install -y \
+    ffmpeg \
     build-essential \
     autoconf \
     pkg-config \
