@@ -62,7 +62,7 @@ class config {
     // cache
     'cache' => true,
     'cache_key' => 0,
-    'storage_path' => '/var/www/_cache',
+    'storage_path' => '/var/www/cache',
 
     // exclude files directories regex
     'files_exclude' => '',
