@@ -1,5 +1,9 @@
 FROM php:8.2-apache
 
+# ✅ 0. 修改 UID + 加入已有组，方便群晖7.0用户
+RUN usermod -u 1026 www-data && \
+    usermod -aG 100 www-data
+
 # ✅ 1. 编译环境 + 依赖（关键修复点）
 RUN apt-get update && apt-get install -y \
     ffmpeg \
@@ -42,4 +46,4 @@ RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["apache2-foreground"]
 
-EXPOSE 8080
+EXPOSE 80
